@@ -9,3 +9,8 @@ deviceName = config['YandexSmart']['deviceName']
 
 #settings
 timeToPlay = int(config['ScriptSettings']['timeToPlay'])
+
+#telegram
+tgToken = config['TelegramBot']['tgToken']
+parentsIds = eval(config['TelegramBot']['parentsIds'])
+childs = eval(config['TelegramBot']['childs'])

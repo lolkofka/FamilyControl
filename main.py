@@ -1,25 +1,105 @@
+from aiogram import Bot, Dispatcher, executor, types, filters
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+
 import additions.config as config
-import additions.iot as iot
 from additions.database import db
+from additions.control import startControl
+import additions.keyboards as keyboards
+import additions.filters as ft
+import additions.iot as iot
 
-import time
+import asyncio, time, threading
 
+bot = Bot(token = config.tgToken, parse_mode = types.ParseMode.HTML)
+dp = Dispatcher(bot, storage = MemoryStorage())
 
+users_db = db('userbase.json')
 database = db('database.json')
+
+
 pc = iot.device(authKey=config.authKey)
-s = pc.get_device(config.deviceName)
+pc.get_device(config.deviceName)
 
-def needOffPc():
-    workTime = database.get('workTime')
-    if not workTime: return False
-    if workTime.get('time') > config.timeToPlay: return True
 
-while True:
-    pcStatus = pc.get_status()
-    if not pcStatus or needOffPc():
-        pc.set_state(False)
+@dp.message_handler(state='*', commands=['start'])
+async def startCommand(message: types.Message):
+    user = message.from_user
+    users_db.set(user.id, {'userName':str(user.username)})
+    with open('texts/start.txt', encoding='utf-8') as dataTxt:
+        text = dataTxt.read()
+    if user.id in config.parentsIds:
+        await message.answer(
+            text.format(userId = user.id), reply_markup= await keyboards.startParentKeyboard(),
+            parse_mode='Markdown'
+        )
+    elif user.id in config.childs:
+        await message.answer(
+            text.format(userId = user.id), reply_markup= await keyboards.startChildKeyboard(),
+            parse_mode='Markdown'
+        )
     else:
-        workTime = database.get('workTime')
-        if not workTime: workTime = {'time':0}
-        database.set('workTime', {'time':workTime.get('time')+5})
-    time.sleep(5)
+        await message.answer(
+            text.format(userId = user.id),
+            parse_mode='Markdown'
+        )
+
+
+@dp.message_handler(ft.isParentOrChild(), filters.Text(startswith='Узнать время'), state='*')
+async def seeTime(message: types.Message, state):
+    user = message.from_user
+    tm = database.get('workTime')
+    if not tm:
+        rm = config.timeToPlay
+    else:
+        rm = config.timeToPlay - tm
+        if rm < 0: rm = 0
+    remaining = time.strftime("%H:%M %Ssec", time.gmtime(rm))
+    await bot.send_message(user.id, remaining)
+
+
+@dp.message_handler(ft.isParentOrChild(), filters.Text(startswith='Включить/Выключить'), state='*')
+async def onOffPc(message):
+    user = message.from_user
+
+    pcStatus = pc.get_status()
+    strPcStatus = 'Включен' if pcStatus else 'Выключен'
+
+    tm = database.get('workTime')
+    print(tm)
+    if not tm:
+        rm = config.timeToPlay
+    else:
+        rm = config.timeToPlay - tm
+        if rm < 0: rm = 0
+    remaining = time.strftime("%H:%M %Ssec", time.gmtime(rm))
+
+    text = f'''
+Текущее состояние компьютера: {strPcStatus}
+Оставшееся время работы: {remaining}
+'''
+    if type(message) == types.Message:
+        await bot.send_message(user.id, text, reply_markup=await keyboards.setState(pcStatus))
+    else:
+        await message.message.edit_text(text, reply_markup=await keyboards.setState(pcStatus))        
+
+
+@dp.callback_query_handler(ft.isParentOrChild(), filters.Text(startswith='setState'), state='*')
+async def setState(callback: types.CallbackQuery):
+    pc.set_state(callback.data[:-3] == 'Off')
+    time.sleep(1)
+    await callback.answer('Успешно!')
+    await onOffPc(callback)
+
+
+# init
+async def initialize(data):
+    info = await data.bot.me
+    print(f'ID: {info["id"]}')
+    print(f'Username: {info["username"]}')
+    t = threading.Thread(target=startControl)
+    t.start()
+
+
+# logging
+if __name__ == "__main__":
+    executor.start_polling(dp, on_startup=initialize, skip_updates=True)

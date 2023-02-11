@@ -3,9 +3,10 @@ import os
 
 
 class db(object):
-    def __init__(self , location):
+    def __init__(self , location, needLogs = False):
         self.location = os.path.expanduser(location)
         self.load(self.location)
+        self.needLogs = needLogs
 
     def load(self , location):
        if os.path.exists(location):
@@ -26,17 +27,23 @@ class db(object):
 
     def set(self , key , value):
         try:
-            self.db[str(key)] = value
+            k = self.get(key)
+            if type(k) == dict and type(value) == dict:
+                k.update(value)
+                self.db[str(key)] = k
+            else:
+                self.db[str(key)] = value
             self.dumpdb()
         except Exception as e:
-            print("[X] Error Saving Values to Database : " + str(e))
+            if self.needLogs: print("[X] Error Saving Values to Database : " + str(e))
             return False
 
     def get(self , key):
         try:
+            self._load()
             return self.db[key]
         except KeyError:
-            print("No Value Can Be Found for " + str(key))
+            if self.needLogs: print("No Value Can Be Found for " + str(key))
             return False
 
     def delete(self , key):
