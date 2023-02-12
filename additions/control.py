@@ -17,9 +17,9 @@ def needOffPc():
 def startControl():
     resetDay = database.get('resetDay')
     if resetDay:
-        if resetDay != time.time()//86400:
+        if resetDay != (time.time()+3600*3)//86400:
             database.set('workTime', 0)
-            database.set('resetDay', time.time()//86400)
+            database.set('resetDay', (time.time()+3600*3)//86400)
             
     while True:
         pcStatus = pc.get_status()
@@ -29,8 +29,8 @@ def startControl():
             workTime = database.get('workTime')
             if not workTime: workTime = 0
             database.set('workTime', workTime+5)
-        hours = time.strftime("%H:%M", time.gmtime(time.time()))
-        if hours == '03:00':
+        hours = time.strftime("%H:%M", time.gmtime((time.time()+3600*3)))
+        if hours == config.resetTime:
             database.set('workTime', 0)
-            database.set('resetDay', time.time()//86400)
+            database.set('resetDay', (time.time()+3600*3)//86400)
         time.sleep(5)

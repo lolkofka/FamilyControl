@@ -8,7 +8,7 @@ import additions.keyboards as keyboards
 import additions.filters as ft
 import additions.iot as iot
 
-import asyncio, time, threading
+import asyncio, time, threading, os
 
 bot = Bot(token = config.tgToken, parse_mode = types.ParseMode.HTML)
 dp = Dispatcher(bot, storage = MemoryStorage())
@@ -65,7 +65,6 @@ async def onOffPc(message):
     strPcStatus = 'Включен' if pcStatus else 'Выключен'
 
     tm = database.get('workTime')
-    print(tm)
     if not tm:
         rm = config.timeToPlay
     else:
