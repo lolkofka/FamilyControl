@@ -57,6 +57,52 @@ async def seeTime(message: types.Message, state):
     await bot.send_message(user.id, remaining)
 
 
+@dp.message_handler(ft.isParentOrChild(), filters.Text(startswith='Продлить время'), state='*')
+async def seeTime(message: types.Message, state):
+    user = message.from_user
+    tm = database.get('workTime')
+    if not tm:
+        rm = config.timeToPlay
+    else:
+        rm = config.timeToPlay - tm
+        if rm < 0: rm = 0
+    remaining = time.strftime("%H:%M %Ssec", time.gmtime(rm))
+    await bot.send_message(user.id, remaining)
+
+
+@dp.message_handler(ft.isParent(), filters.Text(startswith='Изменить время'), state='*')
+async def changeTime(message):
+    user = message.from_user
+
+    tm = database.get('workTime')
+    if not tm:
+        rm = config.timeToPlay
+    else:
+        rm = config.timeToPlay - tm
+        if rm < 0: rm = 0
+    remaining = time.strftime("%H:%M %Ssec", time.gmtime(rm))
+
+    if type(message) == types.Message:
+        await message.answer(f'Оставшееся время: {remaining}, Изменить время',
+            reply_markup = await keyboards.addTimeKeyboard())
+    else:
+        await message.message.edit_text(f'Оставшееся время: {remaining}, Изменить время',
+            reply_markup = await keyboards.addTimeKeyboard())
+
+
+@dp.callback_query_handler(ft.isParent(), filters.Text(startswith='time_'), state='*')
+async def changeTimeComplete(callback: types.CallbackQuery):
+    t, action, tm = callback.data.split('_')
+    t = database.get('workTime')
+    if action == 'add':
+        t -= int(tm)*60
+    else:
+        t += int(tm)*60
+    database.set('workTime', t)
+    await callback.answer('Успешно!')
+    await changeTime(callback)
+
+
 @dp.message_handler(ft.isParentOrChild(), filters.Text(startswith='Включить/Выключить'), state='*')
 async def onOffPc(message):
     user = message.from_user
@@ -84,7 +130,7 @@ async def onOffPc(message):
 
 @dp.callback_query_handler(ft.isParentOrChild(), filters.Text(startswith='setState'), state='*')
 async def setState(callback: types.CallbackQuery):
-    pc.set_state(callback.data[:-3] == 'Off')
+    pc.set_state(callback.data.split('_')[1] == 'On')
     time.sleep(1)
     await callback.answer('Успешно!')
     await onOffPc(callback)
