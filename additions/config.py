@@ -10,6 +10,7 @@ deviceName = config['YandexSmart']['deviceName']
 #settings
 timeToPlay = int(config['ScriptSettings']['timeToPlay'])
 resetTime = config['ScriptSettings']['resetTime']
+lastTime = config['ScriptSettings']['lastTime']
 
 #telegram
 tgToken = config['TelegramBot']['tgToken']

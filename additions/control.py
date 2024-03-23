@@ -36,6 +36,8 @@ def startControl(): #Основной цикл
             if hours == config.resetTime:
                 database.set('workTime', 0)
                 database.set('resetDay', (time.time()+3600*3)//86400) #Сброс времени ночью
+            if hours == config.lastTime:
+                database.set('workTime', config.timeToPlay)
             time.sleep(5) #Ожидание 5 секунд
         except Exception as e:
             print(e)
